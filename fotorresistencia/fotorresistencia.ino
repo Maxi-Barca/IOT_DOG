@@ -3,8 +3,10 @@
 
 void setup() {
   pinMode(FOTORRESISTENCIA, INPUT);
+  Serial.begin(9600);
 }
 
 void loop() {
-  Serial.println(analogRead(FOTORRESISTENCIA));
+  valor = analogRead(FOTORRESISTENCIA);
+  Serial.println(valor);
 }
