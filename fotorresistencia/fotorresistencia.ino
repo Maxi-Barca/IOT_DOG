@@ -1,9 +1,10 @@
-void setup() {
-  // put your setup code here, to run once:
+#define FOTORRESISTENCIA 32
 
+
+void setup() {
+  pinMode(FOTORRESISTENCIA, INPUT);
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
+  Serial.println(analogRead(FOTORRESISTENCIA));
 }
