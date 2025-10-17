@@ -7,7 +7,7 @@
 void setup() {
   Serial.begin(115200);
   Serial.println("Prueba MQ-2)");
-}
+} 
 
 void loop() {
   int gasValor = analogRead(GAS);

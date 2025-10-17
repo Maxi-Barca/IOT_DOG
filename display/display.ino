@@ -12,7 +12,7 @@ void setup() {
   lcd.setCursor(0, 0); // Columna 0, fila 0
   lcd.print("Hola ESP32!");
 
-  lcd.setCursor(0, 1); // Columna 0, fila 1
+  lcd.setC  ursor(0, 1); // Columna 0, fila 1
   lcd.print("LCD 16x2 prueba");
 }
 
