@@ -12,6 +12,8 @@ LiquidCrystal_I2C lcd(LCD_ADDR, 16, 2);
 
 Adafruit_AHTX0 aht;
 
+sensors_event_t humidity, temp;
+
 #define FOTORRESISTENCIA 33
 #define GAS 32
 #define METANO 34
@@ -29,9 +31,6 @@ Adafruit_AHTX0 aht;
 #define ESPERA3 4
 #define ESPERA4 5
 #define ESPERA5 6
-#define ESPERA6 7
-#define ESPERA7 8
-#define ESPERA8 9
 #define TEMP 10
 #define RESTARTEMP 11
 #define SUMARTEMP 12
@@ -71,6 +70,8 @@ int umbralMetano;
 int umbralGas;
 int umbralTemp;
 int umbralHum;
+int umbralIntervalo;
+int umbralGMT;
 
 Preferences preferences;
 
@@ -113,6 +114,8 @@ void setup() {
   umbralGas = preferences.getInt("umbralGas", 10);
   umbralTemp = preferences.getInt("umbralTemp", 23);
   umbralHum = preferences.getInt("umbralHum", 40);
+  umbralIntervalo = preferences.getInt("umbralIntervalo", 30000);
+  umbralGMT = preferences.getInt("umbralGMT", -3);
   preferences.end();
 
   lcd.init();
@@ -159,7 +162,6 @@ void Task2code( void * pvParameters ) {
     millis_actual = millis();
 
     if (millis_actual - millis_aht >= intervalo) {
-      sensors_event_t humidity, temp;
       aht.getEvent(&humidity, &temp);
       Serial.print("Temperatura: ");
       Serial.print(temp.temperature);
@@ -192,6 +194,7 @@ void Task2code( void * pvParameters ) {
 
     switch (estado) {
       case P1:
+        pantallaGeneral();
         if (digitalRead(BOTON1) == LOW) {
           estado = ESPERA2;
         }
@@ -231,6 +234,7 @@ void Task2code( void * pvParameters ) {
         break;
 
       case LDR:
+        pantallaLdr();
         if (digitalRead(BOTON1) == LOW) {
           estado = SUMARLDR;
         }
@@ -243,6 +247,7 @@ void Task2code( void * pvParameters ) {
         break;
 
       case PANTALLA_GAS:
+        pantallaGas();
         if (digitalRead(BOTON1) == LOW) {
           estado = SUMARGAS;
         }
@@ -261,6 +266,7 @@ void Task2code( void * pvParameters ) {
         break;
 
       case TEMP:
+        pantallaTemp();
         if (digitalRead(BOTON1) == LOW) {
           estado = SUMARTEMP;
         }
@@ -279,6 +285,7 @@ void Task2code( void * pvParameters ) {
         break;
 
       case GMT_MQTT:
+        pantallaGMT_MQTT();
         if (digitalRead(BOTON1) == LOW) {
           estado = SUMARGMT;
         }
@@ -303,84 +310,98 @@ void Task2code( void * pvParameters ) {
         break;
 
       case SUMARLDR:
+        pantallaLdr();
         if (digitalRead(BOTON1) == HIGH) {
           estado = LDR;
         }
         break;
 
       case RESTARLDR:
+        pantallaLdr();
         if (digitalRead(BOTON2) == HIGH) {
           estado = LDR;
         }
         break;
 
       case SUMARGAS:
+        pantallaGas();
         if (digitalRead(BOTON1) == HIGH) {
           estado = PANTALLA_GAS;
         }
         break;
 
       case RESTARGAS:
+        pantallaGas();
         if (digitalRead(BOTON2) == HIGH) {
           estado = PANTALLA_GAS;
         }
         break;
 
-        case SUMARMETANO:
+      case SUMARMETANO:
+        pantallaGas();
         if (digitalRead(BOTON3) == HIGH) {
           estado = PANTALLA_GAS;
         }
         break;
 
       case RESTARMETANO:
+        pantallaGas();
         if (digitalRead(BOTON4) == HIGH) {
           estado = PANTALLA_GAS;
         }
         break;
 
       case SUMARTEMP:
+        pantallaTemp();
         if (digitalRead(BOTON1) == HIGH) {
           estado = TEMP;
         }
         break;
 
       case RESTARTEMP:
+        pantallaTemp();
         if (digitalRead(BOTON2) == HIGH) {
           estado = TEMP;
         }
         break;
 
       case SUMARHUM:
+        pantallaTemp();
         if (digitalRead(BOTON3) == HIGH) {
           estado = TEMP;
         }
         break;
 
       case RESTARHUM:
+        pantallaTemp();
         if (digitalRead(BOTON4) == HIGH) {
           estado = TEMP;
         }
         break;
 
       case SUMARGMT:
+        pantallaGMT_MQTT();
         if (digitalRead(BOTON1) == HIGH) {
           estado = GMT_MQTT;
         }
         break;
 
       case RESTARGMT:
+        pantallaGMT_MQTT();
         if (digitalRead(BOTON2) == HIGH) {
           estado = GMT_MQTT;
         }
         break;
 
       case SUMARINT:
+        pantallaGMT_MQTT();
         if (digitalRead(BOTON3) == HIGH) {
           estado = GMT_MQTT;
         }
         break;
 
       case RESTARINT:
+        pantallaGMT_MQTT();
         if (digitalRead(BOTON4) == HIGH) {
           estado = GMT_MQTT;
         }
@@ -392,10 +413,10 @@ void Task2code( void * pvParameters ) {
 }
 
 void loop() {
-  // Vacío 
+  // Vacío
 }
 
-void pantallaGeneral(void){
+void pantallaGeneral(void) {
   lcd.setCursor(0, 0);
   lcd.print("T:");
   lcd.print(temp.temperature);
@@ -415,48 +436,65 @@ void pantallaGeneral(void){
   lcd.print("%");
 }
 
-void pantallaLdr(void){
+void pantallaLdr(void) {
   lcd.setCursor(0, 0);
   lcd.print("VALOR DE LUZ");
   lcd.setCursor(0, 1);
   lcd.print("A:");
   lcd.print(ldrMap);
   lcd.print("% ");
-  Lcd.print("U:");
+  lcd.print("U:");
   lcd.print(umbralLdr);
   lcd.print("%");
 }
 
-void pantallaTemp(void){
+void pantallaTemp(void) {
   lcd.setCursor(0, 0);
   lcd.print("TA");
   lcd.print(temp.temperature);
   lcd.print("°C ");
-  Lcd.print("TU:");
+  lcd.print("TU:");
   lcd.print(umbralTemp);
   lcd.print("°C");
   lcd.setCursor(0, 1);
   lcd.print("HA:");
   lcd.print(humidity.relative_humidity);
   lcd.print("% ");
-  Lcd.print("HU:");
+  lcd.print("HU:");
   lcd.print(umbralHum);
   lcd.print("%");
 }
 
-void pantallaGas(void){
+void pantallaGas(void) {
   lcd.setCursor(0, 0);
   lcd.print("GA");
   lcd.print(gasMap);
   lcd.print("% ");
-  Lcd.print("GU:");
+  lcd.print("GU:");
   lcd.print(umbralGas);
   lcd.print("%");
   lcd.setCursor(0, 1);
   lcd.print("MA:");
   lcd.print(metanoMap);
   lcd.print("% ");
-  Lcd.print("MU:");
+  lcd.print("MU:");
+  lcd.print(umbralMetano);
+  lcd.print("%");
+}
+
+void pantallaGMT_MQTT(void) {
+  lcd.setCursor(0, 0);
+  lcd.print("iA");
+  lcd.print(intervalo / 1000);
+  lcd.print("s ");
+  lcd.print("iU:");
+  lcd.print(umbralIntervalo / 1000);
+  lcd.print("s");
+  lcd.setCursor(0, 1);
+  lcd.print("A:");
+  lcd.print(metanoMap);
+  lcd.print("% ");
+  lcd.print("MU:");
   lcd.print(umbralMetano);
   lcd.print("%");
 }
