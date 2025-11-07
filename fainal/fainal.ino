@@ -28,9 +28,9 @@ sensors_event_t humidity, temp;
 #define P1 1
 #define ESPERA1 2
 #define ESPERA2 3
-#define ESPERA3 4
-#define ESPERA4 5
-#define ESPERA5 6
+#define ESPERA4 4
+#define ESPERA6 5
+#define ESPERA8 6
 #define TEMP 10
 #define RESTARTEMP 11
 #define SUMARTEMP 12
@@ -312,6 +312,13 @@ void Task2code( void * pvParameters ) {
       case SUMARLDR:
         pantallaLdr();
         if (digitalRead(BOTON1) == HIGH) {
+          umbralLdr = umbralLdr + 1;
+          preferences.begin("config", false);
+          preferences.putInt("umbralLdr", umbralLdr);
+          preferences.end();
+          if (umbralLdr > 100) {
+            umbralLdr = 100;
+          }
           estado = LDR;
         }
         break;
@@ -319,6 +326,13 @@ void Task2code( void * pvParameters ) {
       case RESTARLDR:
         pantallaLdr();
         if (digitalRead(BOTON2) == HIGH) {
+          umbralLdr = umbralLdr - 1;
+          preferences.begin("config", false);
+          preferences.putInt("umbralLdr", umbralLdr);
+          preferences.end();
+          if (umbralLdr < 0) {
+            umbralLdr = 0;
+          }
           estado = LDR;
         }
         break;
@@ -326,6 +340,13 @@ void Task2code( void * pvParameters ) {
       case SUMARGAS:
         pantallaGas();
         if (digitalRead(BOTON1) == HIGH) {
+          umbralGas = umbralGas + 1;
+          preferences.begin("config", false);
+          preferences.putInt("umbralGas", umbralGas);
+          preferences.end();
+          if (umbralGas > 100) {
+            umbralGas = 100;
+          }
           estado = PANTALLA_GAS;
         }
         break;
@@ -333,6 +354,13 @@ void Task2code( void * pvParameters ) {
       case RESTARGAS:
         pantallaGas();
         if (digitalRead(BOTON2) == HIGH) {
+          umbralGas = umbralGas - 1;
+          preferences.begin("config", false);
+          preferences.putInt("umbralGas", umbralGas);
+          preferences.end();
+          if (umbralGas < 0) {
+            umbralGas = 0;
+          }
           estado = PANTALLA_GAS;
         }
         break;
@@ -340,74 +368,112 @@ void Task2code( void * pvParameters ) {
       case SUMARMETANO:
         pantallaGas();
         if (digitalRead(BOTON3) == HIGH) {
-          estado = PANTALLA_GAS;
+          if (digitalRead(BOTON3) == HIGH) {
+            umbralMetano = umbralMetano + 1;
+            preferences.begin("config", false);
+            preferences.putInt("umbralMetano", umbralMetano);
+            preferences.end();
+            if (umbralMetano > 100) {
+              umbralMetano = 100;
+            }
+            estado = PANTALLA_GAS;
+          }
+          break;
+
+        case RESTARMETANO:
+          pantallaGas();
+          if (digitalRead(BOTON4) == HIGH) {
+            umbralMetano = umbralMetano - 1;
+            preferences.begin("config", false);
+            preferences.putInt("umbralMetano", umbralMetano);
+            preferences.end();
+            if (umbralMetano < 0) {
+              umbralMetano = 0;
+            }
+            estado = PANTALLA_GAS;
+          }
+          break;
+
+        case SUMARTEMP:
+          pantallaTemp();
+          if (digitalRead(BOTON1) == HIGH) {
+            estado = TEMP;
+            umbralTemp = umbralTemp + 1;
+            preferences.begin("config", false);
+            preferences.putInt("umbralTemp", umbralTemp);
+            preferences.end();
+          }
+          break;
+
+        case RESTARTEMP:
+          pantallaTemp();
+          if (digitalRead(BOTON2) == HIGH) {
+            estado = TEMP;
+            umbralTemp = umbralTemp - 1;
+            preferences.begin("config", false);
+            preferences.putInt("umbralTemp", umbralTemp);
+            preferences.end();
+          }
+          break;
+
+        case SUMARHUM:
+          pantallaTemp();
+          if (digitalRead(BOTON3) == HIGH) {
+            umbralHum = umbralHum + 1;
+            preferences.begin("config", false);
+            preferences.putInt("umbralHum", umbralHum);
+            preferences.end();
+            if (umbralHum > 100) {
+              umbralHum = 100;
+            }
+            estado = TEMP;
+          }
+          break;
+
+        case RESTARHUM:
+          pantallaTemp();
+          if (digitalRead(BOTON4) == HIGH) {
+            umbralHum = umbralHum - 1;
+            preferences.begin("config", false);
+            preferences.putInt("umbralHum", umbralHum);
+            preferences.end();
+            if (umbralHum < 0) {
+              umbralHum = 0;
+            }
+            estado = TEMP;
+          }
+          break;
+
+        case SUMARGMT:
+          pantallaGMT_MQTT();
+          if (digitalRead(BOTON1) == HIGH) {
+            estado = GMT_MQTT;
+          }
+          break;
+
+        case RESTARGMT:
+          pantallaGMT_MQTT();
+          if (digitalRead(BOTON2) == HIGH) {
+            estado = GMT_MQTT;
+          }
+          break;
+
+        case SUMARINT:
+          pantallaGMT_MQTT();
+          if (digitalRead(BOTON3) == HIGH) {
+            estado = GMT_MQTT;
+          }
+          break;
+
+        case RESTARINT:
+          pantallaGMT_MQTT();
+          if (digitalRead(BOTON4) == HIGH) {
+            estado = GMT_MQTT;
+          }
+          break;
+
+
         }
-        break;
-
-      case RESTARMETANO:
-        pantallaGas();
-        if (digitalRead(BOTON4) == HIGH) {
-          estado = PANTALLA_GAS;
-        }
-        break;
-
-      case SUMARTEMP:
-        pantallaTemp();
-        if (digitalRead(BOTON1) == HIGH) {
-          estado = TEMP;
-        }
-        break;
-
-      case RESTARTEMP:
-        pantallaTemp();
-        if (digitalRead(BOTON2) == HIGH) {
-          estado = TEMP;
-        }
-        break;
-
-      case SUMARHUM:
-        pantallaTemp();
-        if (digitalRead(BOTON3) == HIGH) {
-          estado = TEMP;
-        }
-        break;
-
-      case RESTARHUM:
-        pantallaTemp();
-        if (digitalRead(BOTON4) == HIGH) {
-          estado = TEMP;
-        }
-        break;
-
-      case SUMARGMT:
-        pantallaGMT_MQTT();
-        if (digitalRead(BOTON1) == HIGH) {
-          estado = GMT_MQTT;
-        }
-        break;
-
-      case RESTARGMT:
-        pantallaGMT_MQTT();
-        if (digitalRead(BOTON2) == HIGH) {
-          estado = GMT_MQTT;
-        }
-        break;
-
-      case SUMARINT:
-        pantallaGMT_MQTT();
-        if (digitalRead(BOTON3) == HIGH) {
-          estado = GMT_MQTT;
-        }
-        break;
-
-      case RESTARINT:
-        pantallaGMT_MQTT();
-        if (digitalRead(BOTON4) == HIGH) {
-          estado = GMT_MQTT;
-        }
-        break;
-
-
     }
   }
 }
