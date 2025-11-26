@@ -5,6 +5,34 @@
 #include <Adafruit_AHTX0.h>
 #include <LiquidCrystal_I2C.h>
 #include <Preferences.h>
+#include <ESP32Time.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+#include <ArduinoJson.h>
+
+
+#define BOTtoken "7561786153:AAEAnTbyt_XnvsfXFY1onCdNb3hJCKMGF_o"
+#define CHAT_ID "7389596977"
+
+WiFiClientSecure client;
+UniversalTelegramBot bot(BOTtoken, client);
+
+const char* ssid = "ORT-IoT";
+const char* password = "NuevaIOT$25";
+const char* ntpServer = "pool.ntp.org";
+int gmtOffset;
+
+ESP32Time rtc;
+
+void sincronizarHora() {
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    rtc.setTimeStruct(timeinfo);
+  } else {
+    Serial.println("Error al sincronizar hora");
+  }
+}
 
 #define LCD_ADDR 0x27
 
@@ -97,6 +125,18 @@ void setup() {
     while (1);
   }
   Serial.println("Sensor AHT10 detectado correctamente.");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");                               
+
+  bot.sendMessage(CHAT_ID, "hola", "");
 
   pinMode(FOTORRESISTENCIA, INPUT);
   pinMode(LED1, OUTPUT);
@@ -447,6 +487,13 @@ void Task2code( void * pvParameters ) {
         case SUMARGMT:
           pantallaGMT_MQTT();
           if (digitalRead(BOTON1) == HIGH) {
+            umbralGMT = umbralGMT + 1;
+            preferences.begin("config", false);
+            preferences.putInt("umbralGMT", umbralGMT);
+            preferences.end();
+            if (umbralHum > 12) {
+              umbralHum = 12;
+            }
             estado = GMT_MQTT;
           }
           break;
@@ -454,6 +501,13 @@ void Task2code( void * pvParameters ) {
         case RESTARGMT:
           pantallaGMT_MQTT();
           if (digitalRead(BOTON2) == HIGH) {
+            umbralGMT = umbralGMT - 1;
+            preferences.begin("config", false);
+            preferences.putInt("umbralGMT", umbralGMT);
+            preferences.end();
+            if (umbralHum < -12) {
+              umbralHum = -12;
+            }
             estado = GMT_MQTT;
           }
           break;
@@ -550,17 +604,10 @@ void pantallaGas(void) {
 
 void pantallaGMT_MQTT(void) {
   lcd.setCursor(0, 0);
-  lcd.print("iA");
-  lcd.print(intervalo / 1000);
-  lcd.print("s ");
-  lcd.print("iU:");
+  lcd.print("inter:");
   lcd.print(umbralIntervalo / 1000);
   lcd.print("s");
   lcd.setCursor(0, 1);
-  lcd.print("A:");
-  lcd.print(metanoMap);
-  lcd.print("% ");
-  lcd.print("MU:");
-  lcd.print(umbralMetano);
-  lcd.print("%");
+  lcd.print("GMT:");
+  lcd.print(umbralGMT);
 }
