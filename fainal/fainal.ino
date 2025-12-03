@@ -1,6 +1,7 @@
 //Barcarolo, Rodríguez, Kang y Beck
 //Grupo 8
 
+
 #include <Wire.h>
 #include <Adafruit_AHTX0.h>
 #include <LiquidCrystal_I2C.h>
@@ -12,18 +13,24 @@
 #include <ArduinoJson.h>
 
 
+
+
 #define BOTtoken "7561786153:AAEAnTbyt_XnvsfXFY1onCdNb3hJCKMGF_o"
 #define CHAT_ID "7389596977"
 
+
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
+
 
 const char* ssid = "ORT-IoT";
 const char* password = "NuevaIOT$25";
 const char* ntpServer = "pool.ntp.org";
 int gmtOffset;
 
+
 ESP32Time rtc;
+
 
 void sincronizarHora() {
   struct tm timeinfo;
@@ -34,13 +41,18 @@ void sincronizarHora() {
   }
 }
 
+
 #define LCD_ADDR 0x27
+
 
 LiquidCrystal_I2C lcd(LCD_ADDR, 16, 2);
 
+
 Adafruit_AHTX0 aht;
 
+
 sensors_event_t humidity, temp;
+
 
 #define FOTORRESISTENCIA 33
 #define GAS 32
@@ -78,20 +90,26 @@ sensors_event_t humidity, temp;
 #define SUMARMETANO 26
 #define RESTARMETANO 27
 
+
 int estado = P1;
+
 
 int millis_actual;
 int millis_aht;
 
+
 int valorLdr;
 int ldrMap;
+
 
 int gasValor;
 int gasMap;
 int metanoValor;
 int metanoMap;
 
+
 int intervalo;
+
 
 int umbralLdr;
 int umbralMetano;
@@ -101,7 +119,16 @@ int umbralHum;
 int umbralIntervalo;
 int umbralGMT;
 
+
+bool mensajeEnviadoTemp = false;
+bool mensajeEnviadoHum = false;
+bool mensajeEnviadoLdr = false;
+bool mensajeEnviadoGas = false;
+bool mensajeEnviadoMetano = false;
+
+
 Preferences preferences;
+
 
 void pantallaGeneral(void);
 void pantallaLdr(void);
@@ -109,22 +136,46 @@ void pantallaGas(void);
 void pantallaTemp(void);
 void pantallaGMT_MQTT(void);
 
+
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
-void Task1code(void * pvParameters);
-void Task2code(void * pvParameters);
+
+void Task1code(void* pvParameters);
+void Task2code(void* pvParameters);
+
+
+void actualizarHoraConGMT() {
+  int offset = umbralGMT * 3600;
+
+
+  configTime(offset, 0, ntpServer);
+
+
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    rtc.setTimeStruct(timeinfo);
+    Serial.println("Hora sincronizada con GMT actualizado");
+  } else {
+    Serial.println("Error al sincronizar hora con nuevo GMT");
+  }
+}
+
 
 void setup() {
   Serial.begin(115200);
 
+
   Wire.begin(21, 22);
+
 
   if (!aht.begin(&Wire)) {
     Serial.println("No se encontró AHT10/AHT20, revisa conexiones!");
-    while (1);
+    while (1)
+      ;
   }
   Serial.println("Sensor AHT10 detectado correctamente.");
+
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -134,9 +185,11 @@ void setup() {
     Serial.print(".");
   }
   Serial.println("");
-  Serial.println("WiFi connected");                               
+  Serial.println("WiFi connected");
+
 
   bot.sendMessage(CHAT_ID, "hola", "");
+
 
   pinMode(FOTORRESISTENCIA, INPUT);
   pinMode(LED1, OUTPUT);
@@ -148,6 +201,7 @@ void setup() {
   pinMode(BOTON4, INPUT_PULLUP);
   pinMode(BOTON5, INPUT_PULLUP);
 
+
   preferences.begin("config", false);
   umbralLdr = preferences.getInt("umbralLdr", 70);
   umbralMetano = preferences.getInt("umbralMetano", 10);
@@ -158,48 +212,163 @@ void setup() {
   umbralGMT = preferences.getInt("umbralGMT", -3);
   preferences.end();
 
+
+  int offset = umbralGMT * 3600;
+  configTime(offset, 0, ntpServer);
+  sincronizarHora();
+
+
   lcd.init();
   lcd.backlight();
 
-  lcd.setCursor(0, 0); // Columna 0, fila 0
+
+  lcd.setCursor(0, 0);  // Columna 0, fila 0
   lcd.print("Hola ESP32!");
 
-  lcd.setCursor(0, 1); // Columna 0, fila 1
+
+  lcd.setCursor(0, 1);  // Columna 0, fila 1
   lcd.print("LCD 16x2 prueba");
 
+
   xTaskCreatePinnedToCore(
-    Task1code,   /* Task function. */
-    "Task1",     /* name of task. */
-    10000,       /* Stack size of task */
-    NULL,        /* parameter of the task */
-    1,           /* priority of the task */
-    &Task1,      /* Task handle to keep track of created task */
-    0);          /* pin task to core 0 */
+    Task1code, /* Task function. */
+    "Task1",   /* name of task. */
+    10000,     /* Stack size of task */
+    NULL,      /* parameter of the task */
+    1,         /* priority of the task */
+    &Task1,    /* Task handle to keep track of created task */
+    0);        /* pin task to core 0 */
+
 
   delay(500);
 
+
   xTaskCreatePinnedToCore(
-    Task2code,   /* Task function. */
-    "Task2",     /* name of task. */
-    10000,       /* Stack size of task */
-    NULL,        /* parameter of the task */
-    1,           /* priority of the task */
-    &Task2,      /* Task handle to keep track of created task */
-    1);          /* pin task to core 1 */
+    Task2code, /* Task function. */
+    "Task2",   /* name of task. */
+    10000,     /* Stack size of task */
+    NULL,      /* parameter of the task */
+    1,         /* priority of the task */
+    &Task2,    /* Task handle to keep track of created task */
+    1);        /* pin task to core 1 */
+
 
   delay(500);
 }
 
-void Task1code(void * pvParameters) {
 
+void Task1code(void* pvParameters) {
+  for (;;) {
+    millis_actual = millis();
+
+
+    if (temp.temperature >= umbralTemp) {
+      if (mensajeEnviadoTemp == false) {
+        bot.sendMessage(CHAT_ID, "La temperatura supera el umbral", "");
+        mensajeEnviadoTemp = true;
+      }
+    }
+    if (temp.temperature < umbralTemp) {
+      mensajeEnviadoTemp = false;
+    }
+
+
+    if (humidity.relative_humidity >= umbralHum) {
+      if (mensajeEnviadoHum == false) {
+        bot.sendMessage(CHAT_ID, "La humedad supera el umbral", "");
+        mensajeEnviadoHum = true;
+      }
+    }
+    if (humidity.relative_humidity < umbralHum) {
+      mensajeEnviadoHum = false;
+    }
+
+
+    if (gasMap >= umbralGas) {
+      if (mensajeEnviadoGas == false) {
+        bot.sendMessage(CHAT_ID, "La cantidad de gas supera el umbral", "");
+        mensajeEnviadoGas = true;
+      }
+    }
+    if (gasMap < umbralGas) {
+      mensajeEnviadoGas = false;
+    }
+
+
+    if (metanoMap >= umbralMetano) {
+      if (mensajeEnviadoMetano == false) {
+        bot.sendMessage(CHAT_ID, "La cantidad de metano supera el umbral", "");
+        mensajeEnviadoMetano = true;
+      }
+    }
+    if (metanoMap < umbralMetano) {
+      mensajeEnviadoMetano = false;
+    }
+
+
+    if (ldrMap >= umbralLdr) {
+      if (mensajeEnviadoLdr == false) {
+        bot.sendMessage(CHAT_ID, "La cantidad de luz supera el umbral", "");
+        mensajeEnviadoLdr = true;
+      }
+    }
+    if (ldrMap < umbralLdr) {
+      mensajeEnviadoLdr = false;
+    }
+
+
+    // rsto consulta la API de telegram para traer mensajes nuevos que aún no se han procesado
+    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+
+
+    // recorrer todos los mensajes nuevos recibidos
+    for (int i = 0; i < numNewMessages; ++i) {
+
+
+      // extraer el texto del mensaje actual
+      String text = bot.messages[i].text;
+
+
+      // imprimir en el monitor serial el texto recibido para depuración
+      Serial.print("Mensaje recibido: ");
+      Serial.println(text);
+
+
+      // Comparar el texto recibido
+      if (text.equals("TA")) {
+        String tempActual = String(temp.temperature, 2);
+        bot.sendMessage(CHAT_ID, tempActual, "");
+      }
+      if (text.equals("HA")) {
+        String humActual = String(humidity.relative_humidity, 2);
+        bot.sendMessage(CHAT_ID, humActual, "");
+      }
+      if (text.equals("LA")) {
+        String luzActual = String(ldrMap, 2);
+        bot.sendMessage(CHAT_ID, luzActual, "");
+      }
+      if (text.equals("GA")) {
+        String gasActual = String(gasMap, 2);
+        bot.sendMessage(CHAT_ID, gasActual, "");
+      }
+      if (text.equals("MA")) {
+        String metanoActual = String(metanoMap, 2);
+        bot.sendMessage(CHAT_ID, metanoActual, "");
+      }
+    }
+  }
 }
 
-void Task2code( void * pvParameters ) {
+
+void Task2code(void* pvParameters) {
+
 
   intervalo = 30000;
 
+
   for (;;) {
     millis_actual = millis();
+
 
     if (millis_actual - millis_aht >= intervalo) {
       aht.getEvent(&humidity, &temp);
@@ -207,9 +376,11 @@ void Task2code( void * pvParameters ) {
       Serial.print(temp.temperature);
       Serial.println(" °C");
 
+
       Serial.print("Humedad: ");
       Serial.print(humidity.relative_humidity);
       Serial.println(" %");
+
 
       valorLdr = analogRead(FOTORRESISTENCIA);
       ldrMap = map(valorLdr, 0, 4095, 0, 100);
@@ -217,20 +388,85 @@ void Task2code( void * pvParameters ) {
       Serial.print(ldrMap);
       Serial.println("%");
 
-      int gasValor = analogRead(GAS);
-      int gasMap = map(gasValor, 0, 4095, 0, 100);
+
+      gasValor = analogRead(GAS);
+      gasMap = map(gasValor, 0, 4095, 0, 100);
       Serial.print("Gas: ");
       Serial.print(gasMap);
       Serial.println("%");
 
-      int metanoValor = analogRead(METANO);
-      int metanoMap = map(metanoValor, 0, 4095, 0, 100);
+
+      metanoValor = analogRead(METANO);
+      metanoMap = map(metanoValor, 0, 4095, 0, 100);
       Serial.print("Metano: ");
       Serial.print(metanoMap);
       Serial.println("%");
 
+
       millis_aht = millis_actual;
     }
+
+
+    bool peligro = false;
+    bool alerta = false;
+
+
+    if (temp.temperature >= umbralTemp) {
+      alerta = true;
+    }
+    if (temp.temperature >= umbralTemp * 1.3) {
+      peligro = true;
+    }
+
+
+    if (humidity.relative_humidity >= umbralHum) {
+      alerta = true;
+    }
+    if (humidity.relative_humidity >= umbralHum * 1.3) {
+      peligro = true;
+    }
+
+
+    if (gasMap >= umbralGas) {
+      alerta = true;
+    }
+    if (gasMap >= umbralGas * 1.3) {
+      peligro = true;
+    }
+
+
+
+
+    if (metanoMap >= umbralMetano) {
+      alerta = true;
+    }
+    if (metanoMap >= umbralMetano * 1.3) {
+      peligro = true;
+    }
+
+
+    if (ldrMap >= umbralLdr) {
+      alerta = true;
+    }
+    if (ldrMap >= umbralLdr * 1.3) {
+      peligro = true;
+    }
+
+
+    if (peligro) {
+      digitalWrite(LED1, LOW);
+      digitalWrite(LED2, LOW);
+      digitalWrite(LED3, HIGH);  // rojo
+    } else if (alerta) {
+      digitalWrite(LED1, LOW);
+      digitalWrite(LED2, HIGH);  // amarillo
+      digitalWrite(LED3, LOW);
+    } else {
+      digitalWrite(LED1, HIGH);  // verde
+      digitalWrite(LED2, LOW);
+      digitalWrite(LED3, LOW);
+    }
+
 
     switch (estado) {
       case P1:
@@ -249,11 +485,13 @@ void Task2code( void * pvParameters ) {
         }
         break;
 
+
       case ESPERA2:
         if (digitalRead(BOTON1) == HIGH) {
           estado = LDR;
         }
         break;
+
 
       case ESPERA4:
         if (digitalRead(BOTON2) == HIGH) {
@@ -261,17 +499,20 @@ void Task2code( void * pvParameters ) {
         }
         break;
 
+
       case ESPERA6:
         if (digitalRead(BOTON3) == HIGH) {
           estado = TEMP;
         }
         break;
 
+
       case ESPERA8:
         if (digitalRead(BOTON4) == HIGH) {
           estado = GMT_MQTT;
         }
         break;
+
 
       case LDR:
         pantallaLdr();
@@ -285,6 +526,7 @@ void Task2code( void * pvParameters ) {
           estado = ESPERA1;
         }
         break;
+
 
       case PANTALLA_GAS:
         pantallaGas();
@@ -305,6 +547,7 @@ void Task2code( void * pvParameters ) {
         }
         break;
 
+
       case TEMP:
         pantallaTemp();
         if (digitalRead(BOTON1) == LOW) {
@@ -323,6 +566,7 @@ void Task2code( void * pvParameters ) {
           estado = ESPERA1;
         }
         break;
+
 
       case GMT_MQTT:
         pantallaGMT_MQTT();
@@ -343,11 +587,13 @@ void Task2code( void * pvParameters ) {
         }
         break;
 
+
       case ESPERA1:
         if (digitalRead(BOTON5) == HIGH) {
           estado = P1;
         }
         break;
+
 
       case SUMARLDR:
         pantallaLdr();
@@ -363,6 +609,7 @@ void Task2code( void * pvParameters ) {
         }
         break;
 
+
       case RESTARLDR:
         pantallaLdr();
         if (digitalRead(BOTON2) == HIGH) {
@@ -376,6 +623,7 @@ void Task2code( void * pvParameters ) {
           estado = LDR;
         }
         break;
+
 
       case SUMARGAS:
         pantallaGas();
@@ -391,6 +639,7 @@ void Task2code( void * pvParameters ) {
         }
         break;
 
+
       case RESTARGAS:
         pantallaGas();
         if (digitalRead(BOTON2) == HIGH) {
@@ -404,6 +653,7 @@ void Task2code( void * pvParameters ) {
           estado = PANTALLA_GAS;
         }
         break;
+
 
       case SUMARMETANO:
         pantallaGas();
@@ -420,6 +670,7 @@ void Task2code( void * pvParameters ) {
           }
           break;
 
+
         case RESTARMETANO:
           pantallaGas();
           if (digitalRead(BOTON4) == HIGH) {
@@ -434,6 +685,7 @@ void Task2code( void * pvParameters ) {
           }
           break;
 
+
         case SUMARTEMP:
           pantallaTemp();
           if (digitalRead(BOTON1) == HIGH) {
@@ -445,6 +697,7 @@ void Task2code( void * pvParameters ) {
           }
           break;
 
+
         case RESTARTEMP:
           pantallaTemp();
           if (digitalRead(BOTON2) == HIGH) {
@@ -455,6 +708,7 @@ void Task2code( void * pvParameters ) {
             preferences.end();
           }
           break;
+
 
         case SUMARHUM:
           pantallaTemp();
@@ -470,6 +724,7 @@ void Task2code( void * pvParameters ) {
           }
           break;
 
+
         case RESTARHUM:
           pantallaTemp();
           if (digitalRead(BOTON4) == HIGH) {
@@ -484,6 +739,7 @@ void Task2code( void * pvParameters ) {
           }
           break;
 
+
         case SUMARGMT:
           pantallaGMT_MQTT();
           if (digitalRead(BOTON1) == HIGH) {
@@ -491,12 +747,14 @@ void Task2code( void * pvParameters ) {
             preferences.begin("config", false);
             preferences.putInt("umbralGMT", umbralGMT);
             preferences.end();
-            if (umbralHum > 12) {
-              umbralHum = 12;
+            if (umbralGMT > 12) {
+              umbralGMT = 12;
             }
+            actualizarHoraConGMT();
             estado = GMT_MQTT;
           }
           break;
+
 
         case RESTARGMT:
           pantallaGMT_MQTT();
@@ -505,12 +763,14 @@ void Task2code( void * pvParameters ) {
             preferences.begin("config", false);
             preferences.putInt("umbralGMT", umbralGMT);
             preferences.end();
-            if (umbralHum < -12) {
-              umbralHum = -12;
+            if (umbralGMT < -12) {
+              umbralGMT = -12;
             }
+            actualizarHoraConGMT();
             estado = GMT_MQTT;
           }
           break;
+
 
         case SUMARINT:
           pantallaGMT_MQTT();
@@ -519,22 +779,23 @@ void Task2code( void * pvParameters ) {
           }
           break;
 
+
         case RESTARINT:
           pantallaGMT_MQTT();
           if (digitalRead(BOTON4) == HIGH) {
             estado = GMT_MQTT;
           }
           break;
-
-
         }
     }
   }
 }
 
+
 void loop() {
   // Vacío
 }
+
 
 void pantallaGeneral(void) {
   lcd.setCursor(0, 0);
@@ -556,6 +817,7 @@ void pantallaGeneral(void) {
   lcd.print("%");
 }
 
+
 void pantallaLdr(void) {
   lcd.setCursor(0, 0);
   lcd.print("VALOR DE LUZ");
@@ -567,6 +829,7 @@ void pantallaLdr(void) {
   lcd.print(umbralLdr);
   lcd.print("%");
 }
+
 
 void pantallaTemp(void) {
   lcd.setCursor(0, 0);
@@ -585,6 +848,7 @@ void pantallaTemp(void) {
   lcd.print("%");
 }
 
+
 void pantallaGas(void) {
   lcd.setCursor(0, 0);
   lcd.print("GA");
@@ -601,6 +865,7 @@ void pantallaGas(void) {
   lcd.print(umbralMetano);
   lcd.print("%");
 }
+
 
 void pantallaGMT_MQTT(void) {
   lcd.setCursor(0, 0);
