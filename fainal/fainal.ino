@@ -12,9 +12,6 @@
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 
-
-
-
 #define BOTtoken "7561786153:AAEAnTbyt_XnvsfXFY1onCdNb3hJCKMGF_o"
 #define CHAT_ID "7389596977"
 
@@ -22,15 +19,12 @@
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
 
-
-const char* ssid = "ORT-IoT";
-const char* password = "NuevaIOT$25";
+const char* ssid = "MECA-IoT";
+const char* password = "IoT$2026";
 const char* ntpServer = "pool.ntp.org";
 int gmtOffset;
 
-
 ESP32Time rtc;
-
 
 void sincronizarHora() {
   struct tm timeinfo;
@@ -41,18 +35,13 @@ void sincronizarHora() {
   }
 }
 
-
 #define LCD_ADDR 0x27
-
 
 LiquidCrystal_I2C lcd(LCD_ADDR, 16, 2);
 
-
 Adafruit_AHTX0 aht;
 
-
 sensors_event_t humidity, temp;
-
 
 #define FOTORRESISTENCIA 33
 #define GAS 32
@@ -90,26 +79,20 @@ sensors_event_t humidity, temp;
 #define SUMARMETANO 26
 #define RESTARMETANO 27
 
-
 int estado = P1;
-
 
 int millis_actual;
 int millis_aht;
 
-
 int valorLdr;
 int ldrMap;
-
 
 int gasValor;
 int gasMap;
 int metanoValor;
 int metanoMap;
 
-
 int intervalo;
-
 
 int umbralLdr;
 int umbralMetano;
@@ -119,16 +102,13 @@ int umbralHum;
 int umbralIntervalo;
 int umbralGMT;
 
-
 bool mensajeEnviadoTemp = false;
 bool mensajeEnviadoHum = false;
 bool mensajeEnviadoLdr = false;
 bool mensajeEnviadoGas = false;
 bool mensajeEnviadoMetano = false;
 
-
 Preferences preferences;
-
 
 void pantallaGeneral(void);
 void pantallaLdr(void);
@@ -136,21 +116,16 @@ void pantallaGas(void);
 void pantallaTemp(void);
 void pantallaGMT_MQTT(void);
 
-
 TaskHandle_t Task1;
 TaskHandle_t Task2;
-
 
 void Task1code(void* pvParameters);
 void Task2code(void* pvParameters);
 
-
 void actualizarHoraConGMT() {
   int offset = umbralGMT * 3600;
 
-
   configTime(offset, 0, ntpServer);
-
 
   struct tm timeinfo;
   if (getLocalTime(&timeinfo)) {
@@ -161,13 +136,10 @@ void actualizarHoraConGMT() {
   }
 }
 
-
 void setup() {
   Serial.begin(115200);
 
-
   Wire.begin(21, 22);
-
 
   if (!aht.begin(&Wire)) {
     Serial.println("No se encontró AHT10/AHT20, revisa conexiones!");
@@ -175,7 +147,6 @@ void setup() {
       ;
   }
   Serial.println("Sensor AHT10 detectado correctamente.");
-
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -187,9 +158,7 @@ void setup() {
   Serial.println("");
   Serial.println("WiFi connected");
 
-
   bot.sendMessage(CHAT_ID, "hola", "");
-
 
   pinMode(FOTORRESISTENCIA, INPUT);
   pinMode(LED1, OUTPUT);
@@ -201,7 +170,6 @@ void setup() {
   pinMode(BOTON4, INPUT_PULLUP);
   pinMode(BOTON5, INPUT_PULLUP);
 
-
   preferences.begin("config", false);
   umbralLdr = preferences.getInt("umbralLdr", 70);
   umbralMetano = preferences.getInt("umbralMetano", 10);
@@ -212,24 +180,19 @@ void setup() {
   umbralGMT = preferences.getInt("umbralGMT", -3);
   preferences.end();
 
-
   int offset = umbralGMT * 3600;
   configTime(offset, 0, ntpServer);
   sincronizarHora();
 
-
   lcd.init();
   lcd.backlight();
-
 
   lcd.setCursor(0, 0);  // Columna 0, fila 0
   lcd.print("Hola ESP32!");
 
-
   lcd.setCursor(0, 1);  // Columna 0, fila 1
   lcd.print("LCD 16x2 prueba");
-
-
+  
   xTaskCreatePinnedToCore(
     Task1code, /* Task function. */
     "Task1",   /* name of task. */
@@ -239,9 +202,7 @@ void setup() {
     &Task1,    /* Task handle to keep track of created task */
     0);        /* pin task to core 0 */
 
-
   delay(500);
-
 
   xTaskCreatePinnedToCore(
     Task2code, /* Task function. */
@@ -252,15 +213,12 @@ void setup() {
     &Task2,    /* Task handle to keep track of created task */
     1);        /* pin task to core 1 */
 
-
   delay(500);
 }
-
 
 void Task1code(void* pvParameters) {
   for (;;) {
     millis_actual = millis();
-
 
     if (temp.temperature >= umbralTemp) {
       if (mensajeEnviadoTemp == false) {
@@ -272,7 +230,6 @@ void Task1code(void* pvParameters) {
       mensajeEnviadoTemp = false;
     }
 
-
     if (humidity.relative_humidity >= umbralHum) {
       if (mensajeEnviadoHum == false) {
         bot.sendMessage(CHAT_ID, "La humedad supera el umbral", "");
@@ -282,7 +239,6 @@ void Task1code(void* pvParameters) {
     if (humidity.relative_humidity < umbralHum) {
       mensajeEnviadoHum = false;
     }
-
 
     if (gasMap >= umbralGas) {
       if (mensajeEnviadoGas == false) {
@@ -294,7 +250,6 @@ void Task1code(void* pvParameters) {
       mensajeEnviadoGas = false;
     }
 
-
     if (metanoMap >= umbralMetano) {
       if (mensajeEnviadoMetano == false) {
         bot.sendMessage(CHAT_ID, "La cantidad de metano supera el umbral", "");
@@ -304,7 +259,6 @@ void Task1code(void* pvParameters) {
     if (metanoMap < umbralMetano) {
       mensajeEnviadoMetano = false;
     }
-
 
     if (ldrMap >= umbralLdr) {
       if (mensajeEnviadoLdr == false) {
@@ -316,18 +270,14 @@ void Task1code(void* pvParameters) {
       mensajeEnviadoLdr = false;
     }
 
-
     // rsto consulta la API de telegram para traer mensajes nuevos que aún no se han procesado
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
 
-
     // recorrer todos los mensajes nuevos recibidos
     for (int i = 0; i < numNewMessages; ++i) {
-
-
+      
       // extraer el texto del mensaje actual
       String text = bot.messages[i].text;
-
 
       // imprimir en el monitor serial el texto recibido para depuración
       Serial.print("Mensaje recibido: ");
@@ -487,6 +437,7 @@ void Task2code(void* pvParameters) {
 
 
       case ESPERA2:
+      lcd.clear();
         if (digitalRead(BOTON1) == HIGH) {
           estado = LDR;
         }
@@ -494,6 +445,7 @@ void Task2code(void* pvParameters) {
 
 
       case ESPERA4:
+      lcd.clear();
         if (digitalRead(BOTON2) == HIGH) {
           estado = PANTALLA_GAS;
         }
@@ -501,6 +453,7 @@ void Task2code(void* pvParameters) {
 
 
       case ESPERA6:
+      lcd.clear();
         if (digitalRead(BOTON3) == HIGH) {
           estado = TEMP;
         }
@@ -508,6 +461,7 @@ void Task2code(void* pvParameters) {
 
 
       case ESPERA8:
+      lcd.clear();
         if (digitalRead(BOTON4) == HIGH) {
           estado = GMT_MQTT;
         }
@@ -589,6 +543,7 @@ void Task2code(void* pvParameters) {
 
 
       case ESPERA1:
+      lcd.clear();
         if (digitalRead(BOTON5) == HIGH) {
           estado = P1;
         }
@@ -799,22 +754,9 @@ void loop() {
 
 void pantallaGeneral(void) {
   lcd.setCursor(0, 0);
-  lcd.print("T:");
-  lcd.print(temp.temperature);
-  lcd.print("°C");
-  lcd.print("H:");
-  lcd.print(humidity.relative_humidity);
-  lcd.print("%");
-  lcd.print("L:");
-  lcd.print(ldrMap);
-  lcd.print("%");
+  lcd.print("Luz:1 Gas:2 TH:3");
   lcd.setCursor(0, 1);
-  lcd.print("G1;");
-  lcd.print(gasMap);
-  lcd.print("%");
-  lcd.print("G2:");
-  lcd.print(metanoMap);
-  lcd.print("%");
+  lcd.print("GMT/mqtt:4 back5");
 }
 
 
