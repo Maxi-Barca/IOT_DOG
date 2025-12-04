@@ -1,8 +1,8 @@
-#define LED1 33
-#define LED2 32
-#define LED3 25
-#define BOTON1 22
-#define BOTON2 21
+#define LED1 5
+#define LED2 18
+#define LED3 19
+#define BOTON1 16
+#define BOTON2 17
 
 
 void setup() {
